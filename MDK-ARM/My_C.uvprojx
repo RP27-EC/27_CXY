@@ -551,14 +551,14 @@
               <FilePath>..\Application\ModuleLayer\myrobot_def.h</FilePath>
             </File>
             <File>
-              <FileName>gimbal.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Application\ModuleLayer\gimbal.c</FilePath>
-            </File>
-            <File>
               <FileName>gimbal.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Application\ModuleLayer\gimbal.h</FilePath>
+            </File>
+            <File>
+              <FileName>gimbal.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\ModuleLayer\gimbal.c</FilePath>
             </File>
             <File>
               <FileName>shoot.c</FileName>

@@ -45,12 +45,12 @@ static void Board_Tx_Meg_02(uint8_t *txbuf)
     txbuf[6] = (t4 >> 8) & 0xFF;
     txbuf[7] = t4 & 0xFF;
 
-    CAN_SendData(&hcan2, ID_Board_Tx1, txbuf);
+    CAN_SendData(&hcan2, ID_Board_Tx2, txbuf);
 }
 
 static void Board_Tx_Meg_01(uint8_t *txbuf)
 {
-    // 8个电机/设备状态 打包到 txbuf[0]
+    // 7个电机/加上升降状态 打包到 txbuf[0]
     memcpy(&txbuf[0], &Board_Tx_Info.state_meg, 1);
 
     // 视觉 yaw 目标
@@ -64,15 +64,16 @@ static void Board_Tx_Meg_01(uint8_t *txbuf)
     txbuf[5] = t2 & 0xFF;
 
     txbuf[6] = Board_Tx_Info.vision_meg.is_find_target ? 1 : 0;
-    CAN_SendData(&hcan2, ID_Board_Tx2, txbuf);
+    CAN_SendData(&hcan2, ID_Board_Tx1, txbuf);
 }
 
-
+int test[8];
 // 接收 PKT01：解析状态 + 发射指令
 static void Board_Rx_Pkt_01(uint8_t *rxbuf)
 {
     // 第0字节 + 第1字节 → 直接 memcpy 进位域结构体（2字节）
     memcpy(&Board_Rx_Info.state_pkt, rxbuf, 2);
+	memcpy(&Board_Rx_Info.shoot_pkt, &rxbuf[5], 1);
 }
 
 // 接收 PKT02：解析云台目标角度
@@ -101,8 +102,8 @@ void Board_Rx_Pkt_03(uint8_t *rxbuf)
 
     Board_Rx_Info.judge_shoot_pkt.shoot_speed = uint_to_float(t1, -50.0f, 50.0f, 16);
     Board_Rx_Info.judge_shoot_pkt.shoot_freq = uint_to_float(t2, -50.0f, 50.0f, 16);
-    Board_Rx_Info.judge_shoot_pkt.shoot_heat = ((uint16_t)rxbuf[4] << 8) | rxbuf[5];
-    Board_Rx_Info.judge_shoot_pkt.shoot_heat_max = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
+    Board_Rx_Info.judge_shoot_pkt.shoot_heat_err = ((uint16_t)rxbuf[4] << 8) | rxbuf[5];
+    Board_Rx_Info.judge_shoot_pkt.allowance_max = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
 }
 
 // 接收 PKT04：解析血量信息（直接 memcpy）
@@ -117,9 +118,9 @@ void Board_Tx_Update(Board_Tx_Info_t *Board_Tx_Info)
     // 云台信息 (Board_Gimbal_Meg_t)
     Board_Tx_Info->gimbal_meg.yaw_imu = imu_sensor.info->base_info.yaw;
     Board_Tx_Info->gimbal_meg.pitch_imu = imu_sensor.info->base_info.pitch;
-    Board_Tx_Info->gimbal_meg.pitch_mec = gimbal.base_info.pitch_motor_angle;
-    Board_Tx_Info->gimbal_meg.yaw_mec = gimbal.base_info.yaw_motor_angle;
-    Board_Tx_Info->state_meg.Lift_state = gimbal.Lift.lift_state;
+    Board_Tx_Info->gimbal_meg.pitch_mec = Gimbal.base_info.pitch_motor_angle;
+    Board_Tx_Info->gimbal_meg.yaw_mec = Gimbal.base_info.yaw_motor_angle;
+    Board_Tx_Info->state_meg.lift_state = Gimbal.Lift.lift_state;
 
     // 视觉目标 (Board_Vision_Meg_t)
     Board_Tx_Info->vision_meg.vision_yaw_tar = vision.VtoE->yaw;
@@ -128,11 +129,16 @@ void Board_Tx_Update(Board_Tx_Info_t *Board_Tx_Info)
     // 电机状态 (1字节 位域结构体)
     Board_Tx_Info->state_meg.pitch_motor_state = (dm_motor[PITCH].state->status == DEV_ONLINE) ? 1 : 0;
     Board_Tx_Info->state_meg.yaw_motor_state = (dm_motor[YAW].state->status == DEV_ONLINE) ? 1 : 0;
-    Board_Tx_Info->state_meg.lift_motor_state = (dm_motor[LIFT].state->status == DEV_ONLINE) ? 1 : 0;
+    Board_Tx_Info->state_meg.lift_motor_state = (rm_motor[LIFT].state->status == DEV_ONLINE) ? 1 : 0;
     Board_Tx_Info->state_meg.l_fric_state = (rm_motor[L_Fric].state->status == DEV_ONLINE) ? 1 : 0;
     Board_Tx_Info->state_meg.r_fric_state = (rm_motor[R_Fric].state->status == DEV_ONLINE) ? 1 : 0;
-    Board_Tx_Info->state_meg.dial_motor_state = (rm_motor[Dial].state->status == DEV_ONLINE) ? 1 : 0;
-    //需要图传待写
+    Board_Tx_Info->state_meg.dial_motor_state = (dail_motor.KT_motor_info .state_info.work_state == M_ONLINE) ? 1 : 0;
+    
+    if(Gimbal.Lift.Lift_mode == LIFT_UP)
+        Board_Tx_Info->state_meg.lift_state = 1;
+    else
+        Board_Tx_Info->state_meg.lift_state = 0;
+
     Board_Tx_Info->state_meg.vision_state = (vision.status->rx_state == DEV_ONLINE) ? 1 : 0;
 }
 
@@ -167,17 +173,33 @@ void Send_To_Down_Board(void)
     Board_Tx_Meg_02(board_tx_buf2);
 }
 
+int offline_count=0;
+int err_count_1 = 0,err_count_2 = 0;
 void C_Board_Communicate_HeartBeat(void)
 {
     Board_HeartBeat.offline_cnt_pack_1++;
-
-    if (Board_HeartBeat.offline_cnt_pack_1 > Board_HeartBeat.offline_cnt_max )
+	Board_HeartBeat.offline_cnt_pack_2++;
+	Board_HeartBeat.offline_cnt_pack_3++;
+	if (hcan2.Instance->ESR != 0)
+	{
+		err_count_1++;
+	}
+    if (Board_HeartBeat.offline_cnt_pack_1 > Board_HeartBeat.offline_cnt_max ||
+		Board_HeartBeat.offline_cnt_pack_2 > Board_HeartBeat.offline_cnt_max ||
+		Board_HeartBeat.offline_cnt_pack_3 > Board_HeartBeat.offline_cnt_max)
     {
-        Board_HeartBeat.offline_cnt_pack_1 = Board_HeartBeat.offline_cnt_max;
         Board_HeartBeat.status = DEV_OFFLINE;
+		offline_count ++;
     }
-    else if (Board_HeartBeat.status == DEV_OFFLINE)
+	if(Board_HeartBeat.offline_cnt_pack_1 > Board_HeartBeat.offline_cnt_max)
+		Board_HeartBeat.offline_cnt_pack_1 = Board_HeartBeat.offline_cnt_max;
+	if(Board_HeartBeat.offline_cnt_pack_2 > Board_HeartBeat.offline_cnt_max)
+		Board_HeartBeat.offline_cnt_pack_2 = Board_HeartBeat.offline_cnt_max;
+	if(Board_HeartBeat.offline_cnt_pack_3 > Board_HeartBeat.offline_cnt_max)
+		Board_HeartBeat.offline_cnt_pack_3 = Board_HeartBeat.offline_cnt_max;
+    if (Board_HeartBeat.status == DEV_OFFLINE)
     {
         Board_HeartBeat.status = DEV_ONLINE;
     }
 }
+ 

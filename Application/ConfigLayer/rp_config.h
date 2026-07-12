@@ -44,8 +44,11 @@
 /*单独调试拨盘不控制摩擦轮*/
 //#define DIAL_DEBUG  
 
+/*单独调试拨盘电机pid*/
+//#define DIAL_PID
+
 /*开启无热量限制*/
-//#define TEST_NO_LIMIT_SHOOT
+#define TEST_NO_LIMIT_SHOOT
 
 /* Exported types ------------------------------------------------------------*/
 

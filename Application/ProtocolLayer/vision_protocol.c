@@ -63,11 +63,6 @@ Vision_Status_t vision_status =
 Vision_t vision =
 
 	{
-
-		//	.tx_info = &vision_tx_info,
-
-		//	.rx_info = &vision_rx_info,
-
 		.EtoV = &vision_tx_info,
 
 		.VtoE = &vision_rx_info,
@@ -198,13 +193,13 @@ void Vision_Board_Update(void)
 	vision.EtoV->flag_union.bit.outpost_mode = (car.vision_flag.outpost_flag) ? 1 : 0;
 	vision.EtoV->flag_union.bit.own_color = Board_Rx_Info.state_pkt.my_color;
 
-	vision.EtoV->yaw = gimbal.base_info.yaw_imu_angle;
+	vision.EtoV->yaw = Gimbal.base_info.yaw_imu_angle;
 
-	vision.EtoV->pitch = gimbal.base_info.pitch_imu_angle;
+	vision.EtoV->pitch = Gimbal.base_info.pitch_imu_angle;
 
-	vision.EtoV->pitch_speed = gimbal.base_info.pitch_imu_speed;
+	vision.EtoV->pitch_speed = Gimbal.base_info.pitch_imu_speed;
 
- 	vision.EtoV->yaw_speed = gimbal.base_info.yaw_imu_speed;
+ 	vision.EtoV->yaw_speed = Gimbal.base_info.yaw_imu_speed;
 
 	vision.EtoV->roll = imu_sensor.info->base_info.roll;
 } 

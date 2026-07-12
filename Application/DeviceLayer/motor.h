@@ -36,9 +36,8 @@ typedef struct dail_pid_info_struct
 #define ID_FRIC_R 0x202
 #define ID_GIMB_P 0x11
 #define ID_GIMB_Y 0x12
-#define ID_LIFT 0x14
-#define ID_DIAL 0x203
-#define ID_SMALL_FLAT 0x203
+#define ID_LIFT 0x204
+#define ID_DIAL 0x141
 
 
 extern Motor_RM_Group_t RM_Group;

@@ -2,7 +2,7 @@
 #include "motor.h"
 
 extern CAN_HandleTypeDef hcan1;
-
+extern CAN_HandleTypeDef hcan2;
 /*yaw pitch DM4310x2
 / fric 3508x2
 / dial LK4005
@@ -23,7 +23,7 @@ Motor_DM_Ctrl_Info_t Pitch_Ctrl;
 
 Motor_DM_Born_Info_t Yaw_Born_Info = {
     .txId = 0x02,
-    .hcan = &hcan1,
+    .hcan = &hcan2,
 };
 
 Motor_DM_Rx_Info_t Yaw_Rx_Info;
@@ -104,29 +104,11 @@ Motor_RM_Ctrl_Info_t L_Fric_Ctrl = {
 };
 
 
-Motor_RM_Born_Info_t Dial_Born = {
-    .rxId = 2,
-    .hcan = &hcan1,
-    .type = _2006_Single,
-    .stdId = 0x200,
-};
-
-Motor_RM_Tx_Info_t Dial_Tx;
-Motor_RM_State_t Dial_State;
-Motor_RM_Rx_Info_t Dial_Rx;
-
-pid_ctrl_t Dial_Speed_Ctrl;
-
-Motor_RM_Ctrl_Info_t Dial_Ctrl = {
-    .speed_ctrl = &Dial_Speed_Ctrl,
-};
-
-
 Motor_RM_Born_Info_t Lift_Born = {
-    .rxId = 2,
+    .rxId = 3,
     .hcan = &hcan1,
-    .type = _2006_Single,
-    .stdId = 0x1FF,
+    .type = _2006_Reduction,
+    .stdId = 0x200,
 };
 
 Motor_RM_Tx_Info_t Lift_Tx;
@@ -156,15 +138,7 @@ Motor_RM_t rm_motor[] = {
         .single_init = RM_Motor_Init,
         .ctrl = &L_Fric_Ctrl,
     },
-
-    [Dial] = {
-        .born_info = &Dial_Born,
-        .rx_info = &Dial_Rx,
-        .tx_info = &Dial_Tx,
-        .state = &Dial_State,
-        .single_init = RM_Motor_Init,
-        .ctrl = &Dial_Ctrl,
-    },
+	
     [LIFT] = {
         .born_info = &Lift_Born,
         .rx_info = &Lift_Rx,
@@ -178,7 +152,6 @@ Motor_RM_t rm_motor[] = {
 Motor_RM_Group_t RM_Group = {
     .motor[R_Fric] = &rm_motor[R_Fric],
     .motor[L_Fric] = &rm_motor[L_Fric],
-    .motor[Dial] = &rm_motor[Dial],
     .motor[LIFT] = &rm_motor[LIFT],
     .stdId = 0x200,
     .hcan = &hcan1,
@@ -188,6 +161,34 @@ Motor_RM_Group_t RM_Group = {
 
 
 /*LK4005 START*/
+#ifdef DIAL_PID
+
+static pid_ctrl_t dail_speed =
+    {
+        .kp = 0.15f,
+        .ki = 0.0f,
+        .kd = 0.f,
+        .integral_max = 500.f,
+        .out_max = 1000.f,
+};
+static pid_ctrl_t dail_position_out =
+    {
+        .kp = 0.10,
+        .ki = 0.f,
+        .kd = 0.f,
+        .integral_max = 0.f,
+        .out_max = 1000000.f,
+};
+static pid_ctrl_t dail_position_inner =
+    {
+        .kp = 0.06f,
+        .ki = 0.f,
+        .kd = 0.f,
+        .integral_max = 0.f,
+        .out_max = 1000.f,
+};
+
+#else
 
 static pid_ctrl_t dail_speed =
     {
@@ -213,6 +214,7 @@ static pid_ctrl_t dail_position_inner =
         .integral_max = 0.f,
         .out_max = 1000.f,
 };
+#endif
 
 dail_pid_info_t dail_pid = {
     .speed = &dail_speed,

@@ -23,6 +23,8 @@ void kt_motor_class_pid_init(KT_motor_t *motor);
 
 void get_kt_motor_info(KT_motor_t *motor, uint8_t *rxBuf);
 
+static void KT_Encoder_Sum_Cal(KT_motor_t *motor);
+
 void tx_kt_motor_W_command(KT_motor_t *motor, uint8_t command);
 
 void tx_kt_motor_R_command(KT_motor_t *motor, uint8_t command);
@@ -162,6 +164,8 @@ void KT_motor_class_init(KT_motor_t *motor)
 	motor->KT_motor_info.state_info.offline_cnt = 0;
 
 	motor->KT_motor_info.state_info.selfprotect_cnt = 0;
+	
+//	motor->KT_motor_info.rx_info.encoder_sum = 0;
 
 	motor->KT_motor_info.state_info.work_state = M_OFFLINE;
 
@@ -833,6 +837,45 @@ void tx_kt_motor_R_command(KT_motor_t *motor, uint8_t command)
 }
 
 /**
+ *  @brief  计算KT电机多圈角度和，处理16位编码器(0-65535)的过零点
+ *  @param  motor: KT电机结构体
+ *  @retval none
+ */
+static void KT_Encoder_Sum_Cal(KT_motor_t *motor)
+{
+	int32_t err;
+	KT_motor_rx_info_t *rx_info = &motor->KT_motor_info.rx_info;
+
+	/* 未初始化：last_encoder为0且encoder_sum为0时，不计算误差 */
+	if (rx_info->last_encoder == 0 && rx_info->encoder_sum == 0)
+	{
+		err = 0;
+	}
+	else
+	{
+		err = (int32_t)rx_info->encoder - (int32_t)rx_info->last_encoder;
+	}
+
+	/* 过零点判断：16位编码器半量程为32767 */
+	if (err > 32767 || err < -32767)
+	{
+		/* 65535↓ -> 0 （编码器值从大向小跳变，如60000->2000） */
+		if (err >= 0)
+			rx_info->encoder_sum += (uint32_t)(-65535 + err);
+		/* 0↑ -> 65535 （编码器值从小向大跳变，如2000->60000） */
+		else
+			rx_info->encoder_sum += (uint32_t)(65535 + err);
+	}
+	/* 未过零点 */
+	else
+	{
+		rx_info->encoder_sum += (uint32_t)err;
+	}
+
+	rx_info->last_encoder = rx_info->encoder;
+}
+
+/**
 
  *	@brief	接收电机发来的信息并自动更新，需要注意，大部分发送给电机的指令，电机也会返回一些数据
 
@@ -1172,7 +1215,7 @@ void get_kt_motor_info(KT_motor_t *motor, uint8_t *rxBuf)
 		rx_info->encoder <<= 8;
 
 		rx_info->encoder |= (uint16_t)rxBuf[6];
-
+        KT_Encoder_Sum_Cal(motor);
 		break;
 
 	default:

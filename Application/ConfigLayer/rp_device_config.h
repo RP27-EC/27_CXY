@@ -82,7 +82,6 @@ typedef enum
 {
 	R_Fric = 0,
 	L_Fric,
-	Dial,
 	LIFT,
 	RM_MOTOR_SHOOT_LIST,
 } dev_rm_shoot_list_e;

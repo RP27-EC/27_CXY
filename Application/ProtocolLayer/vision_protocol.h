@@ -87,6 +87,19 @@ typedef struct __attribute__((packed))
 
 } ElectricalToVisionFrame;
 
+// typedef struct __attribute__((packed)) ElectricalToVisionFrame
+// {
+//     uint8_t header;        // 帧头固定 0xA5
+//     uint8_t mode;          // 模式字段
+//     uint8_t CRC8;          // CRC8，覆盖 header + mode
+//     uint8_t is_ready;
+//     uint8_t my_color;      // 我方颜色：0-red 1-blue
+//     bool is_start;         // 比赛开始标志：0-否 1-是
+//     float yaw;             // 云台yaw
+//     float pitch;           // 云台pitch
+//     float roll;            // 云台roll
+//     uint16_t CRC16;        // 整帧CRC16校验
+// } ElectricalToVisionFrame;
 /**
 
  * @brief 视觉发给电控的数据帧结构体

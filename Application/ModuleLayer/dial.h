@@ -239,6 +239,7 @@ typedef struct
     uint8_t abnormal_count;            // 异常(剔除)弹速计数
     bool is_valid;                     // 统计是否有效
     uint8_t head_index;                // 环形缓冲区最旧数据索引
+	uint8_t shoot_count;
 
 } shoot_speed_stats_t;
 

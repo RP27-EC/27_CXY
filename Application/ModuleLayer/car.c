@@ -36,9 +36,10 @@ void car_init(car_t *car)
     car->car_ctrl_mode = RC_CTRL_MODE;
 
     car->vision = &vision;
-    car->gimbal = &gimbal;
+    car->gimbal = &Gimbal;
     car->shoot = &shoot;
 
+    car->shoot_flag.Enable_Shoot_Flag = false;
     car->unlock_car_flag = 0;
     car->init_cnt = 0;
     car->init_cnt_max = 1000; // 初始化计数上限
@@ -65,6 +66,9 @@ void car_update(car_t *car)
     break;
   }
 
+  //离线总控
+  if(Board_HeartBeat.status == DEV_OFFLINE)
+	  car->car_ctrl_mode = SLEEP_MODE;
 
   /*接收车体模式*/
   switch (Board_Rx_Info.state_pkt.car_state)
@@ -79,6 +83,13 @@ void car_update(car_t *car)
       car->car_move_mode = mec_CAR; // 默认离线模式
   }
 
+  /*接受发射信息，仅由底盘控死，再写一个失去板通，标志位强行改0*/
+  if (Board_Rx_Info.shoot_pkt.launch_state == 0)
+  {
+    car->shoot_flag.Enable_Shoot_Flag = false;
+  }
+  else
+    car->shoot_flag.Enable_Shoot_Flag = true;
 
   /*接收视觉模式*/
   switch(Board_Rx_Info.state_pkt.vision_mode)

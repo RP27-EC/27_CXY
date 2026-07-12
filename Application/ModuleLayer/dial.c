@@ -114,6 +114,7 @@ shoot_t shoot = {
     .send = Shoot_send_dial_output, // 绑定拨盘输出函数
 };
 
+int count_num = 0;
 /* Private function prototypes (static) --------------------------------------*/
 static void Shoot_Extern_Update(shoot_t *shoot);                                                             // 外部数据更新（从外部模块注入）
 static void Shoot_State_Machine(shoot_t *shoot);                                                             // 7状态机状态更新
@@ -255,14 +256,17 @@ static bool Shoot_Dial_Block_Check(shoot_t *shoot)
  */
 static void Shoot_State_Machine(shoot_t *shoot)
 {
+	static bool last_shoot_flag = 0;
+	
     // 获取拨盘电机反馈
     KT_motor_rx_info_t *rx = (KT_motor_rx_info_t *)&shoot->extern_input.dial;
     float current_angle = (float)shoot->extern_input.dial.encoder_sum; // 当前角度
     float oneshot = shoot->cfg.reset_cfg.oneshot_angle;                // 单发拨弹角度
 
     // ============================ 全局优先级: 关控 → S_SLEEP ============================
-    if (shoot->extern_input.shoot_flag.Enable_Shoot_Flag == false ||
-        RC_OFFLINE)
+    if (shoot->extern_input.shoot_flag.Enable_Shoot_Flag == false )
+//		||
+//        car.car_ctrl_mode == SLEEP_MODE)
     {
         // 关控时强制进入睡眠状态，清除所有状态标志
         shoot->state = S_SLEEP;
@@ -275,7 +279,6 @@ static void Shoot_State_Machine(shoot_t *shoot)
         shoot->adapt_info.final_fric_target_speed = 0;
         return;
     }
-
     // 状态运行 tick 递增
     shoot->state_tick++;
 
@@ -357,10 +360,10 @@ static void Shoot_State_Machine(shoot_t *shoot)
         }
 
         // 优先级3: 单发发射 (shoot_mode==0 且 shoot_ctrl_flag上升沿)
-        if (shoot->extern_input.shoot_flag.Shoot_Mode == 0 && shoot->extern_input.shoot_flag.Shoot_Ctrl_Flag == true)
+        if (shoot->extern_input.shoot_flag.Shoot_Mode == 0 && shoot->extern_input.shoot_flag.Shoot_Ctrl_Flag == true && last_shoot_flag == false)
         {
 #ifndef TEST_NO_LIMIT_SHOOT
-            uint16_t heat_remain = Board_Rx_Info.judge_shoot_pkt.shoot_heat_max - Board_Rx_Info.judge_shoot_pkt.shoot_heat;
+            uint16_t heat_remain = Board_Rx_Info.judge_shoot_pkt.shoot_heat_err;
             uint8_t is_in_match = (Board_Rx_Info.state_pkt.game_start);
             uint8_t single_shoot_blocked = 0;
 
@@ -385,6 +388,7 @@ static void Shoot_State_Machine(shoot_t *shoot)
                 break;
             }
 #endif
+			count_num ++;
             shoot->dial_arrived_flag = false;
             shoot->dail_info.target_anglesum += oneshot; // 目标角度增加一弹
             shoot->state = S_SINGLE_SHOOT;
@@ -501,6 +505,7 @@ static void Shoot_State_Machine(shoot_t *shoot)
         shoot->state = S_SLEEP;
         break;
     }
+	last_shoot_flag = shoot->extern_input.shoot_flag.Shoot_Ctrl_Flag;
 }
 
 /**
@@ -523,7 +528,7 @@ static void Shoot_Heat_Limit(shoot_t *shoot)
         shoot->heat_limit_info.high_heat_shooting_freq * shoot->heat_limit_info.k_from_shooting_freq_to_dail_speed;
 #else
     // 计算剩余热量
-    uint16_t heat_remain = Board_Rx_Info.judge_shoot_pkt.shoot_heat_max - Board_Rx_Info.judge_shoot_pkt.shoot_heat;
+    uint16_t heat_remain = Board_Rx_Info.judge_shoot_pkt.shoot_heat_err;
     uint8_t is_in_match = (Board_Rx_Info.state_pkt.game_start);//?
     uint8_t stop_shoot = 0;
 
@@ -689,15 +694,23 @@ static void Shoot_Fric_Ctrl(shoot_t *shoot)
 static void Shoot_Speed_Statistics_Update(shoot_t *shoot)
 {
     static uint32_t last_shoot_count = 0;
+	static uint32_t last_speed = 0;
     shoot_speed_stats_t *stats = &shoot->speed_stats;
-
+	
+	if(Board_Rx_Info.judge_shoot_pkt.shoot_speed != last_speed)
+	{
+		stats->shoot_count ++;
+	}
+	
+	last_speed = Board_Rx_Info.judge_shoot_pkt.shoot_speed;
+	
     // 无新弹丸不更新
-    if (Board_Rx_Info.judge_shoot_pkt.shoot_count == last_shoot_count)
+    if (stats->shoot_count == last_shoot_count)
     {
         return;
     }
 
-    last_shoot_count = Board_Rx_Info.judge_shoot_pkt.shoot_count;
+    last_shoot_count = stats->shoot_count;
     float current_speed = Board_Rx_Info.judge_shoot_pkt.shoot_speed;
 
     // 记录最近一颗弹丸初速度，便于调试观察
@@ -793,9 +806,9 @@ static void Shoot_First_Bullet_Time_Update(shoot_t *shoot)
     if (info->is_recording)
     {
         static uint32_t last_shoot_count = 0;
-        if (Board_Rx_Info.judge_shoot_pkt.shoot_count != last_shoot_count)
+        if (shoot->speed_stats.shoot_count != last_shoot_count)
         {
-            last_shoot_count = Board_Rx_Info.judge_shoot_pkt.shoot_count;
+            last_shoot_count = shoot->speed_stats.shoot_count;
             // 记录首弹射出时刻
             info->first_shot_time[info->current_dail_start_index] = HAL_GetTick();
             // 计算时间差(ms)
@@ -816,14 +829,24 @@ static void Shoot_First_Bullet_Time_Update(shoot_t *shoot)
  */
 static void Shoot_Dial_Pid_Cal(shoot_t *shoot)
 {
+	KT_motor_rx_info_t *rx = &shoot->dail_info.dail_motor->KT_motor_info.rx_info;
+
+    // 写入拨盘外部数据
+    shoot->extern_input.dial.encoder_sum = rx->encoder_sum;
+    shoot->extern_input.dial.speed = rx->speed;
+
     // 获取电机反馈值
     float measure_angle = (float)shoot->extern_input.dial.encoder_sum;
     float measure_speed = (float)shoot->extern_input.dial.speed;
 
     if (shoot->dail_info.ctrl_mode == DIAL_ANGLE)
     {
+		
+		#ifdef DIAL_PID
+		#else
+		shoot->dail_info.dail_pid->position_outer->target = shoot->dail_info.target_anglesum;
+		#endif
         // 角度环串级PID: 外环角度 → 内环速度 → 电流输出
-        shoot->dail_info.dail_pid->position_outer->target = shoot->dail_info.target_anglesum;
         shoot->dail_info.dail_pid->position_outer->measure = measure_angle;
         pid_err_cal(shoot->dail_info.dail_pid->position_outer);
         single_pid_ctrl(shoot->dail_info.dail_pid->position_outer);
@@ -839,7 +862,10 @@ static void Shoot_Dial_Pid_Cal(shoot_t *shoot)
     else if (shoot->dail_info.ctrl_mode == DIAL_SPEED)
     {
         // 速度环单级PID
+		#ifdef DIAL_PID
+		#else
         shoot->dail_info.dail_pid->speed->target = shoot->dail_info.target_speed;
+		#endif
         shoot->dail_info.dail_pid->speed->measure = measure_speed;
         pid_err_cal(shoot->dail_info.dail_pid->speed);
         single_pid_ctrl(shoot->dail_info.dail_pid->speed);

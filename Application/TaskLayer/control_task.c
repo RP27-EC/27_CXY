@@ -30,15 +30,16 @@ void All_CAN_Send_Here(void)
    {
        RM_Group.group_set_torque(&RM_Group);
        DM_Group.group_set_torque(&DM_Group);
-       shoot.send(&shoot);
-       Send_To_Down_Board();
+	   shoot.send(&shoot);
+//	
    }
    else
    {
        RM_Group.group_sleep(&RM_Group);
+	   RM_Group.group_set_torque(&RM_Group);
        DM_Group.group_sleep(&DM_Group);
+	   DM_Group.group_set_torque(&DM_Group);
        shoot.dail_info.dail_motor->W_iqControl(shoot.dail_info.dail_motor, 0);
        shoot.dail_info.dail_motor->tx_W_cmd(shoot.dail_info.dail_motor, TORQUE_CLOSE_LOOP_ID);
-       Send_To_Down_Board();
    }
 }

@@ -30,4 +30,5 @@ void DEVICE_Heart_Beat(void)
 	rc_sensor.heart_beat(&rc_sensor);
 	rm_motor_list_heart_beat();
 	dm_motor_list_heart_beat();
+	dail_motor.heartbeat(&dail_motor);
 }

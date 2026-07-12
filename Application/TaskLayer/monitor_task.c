@@ -27,6 +27,8 @@ void StartMonitorTask(void const *argument)
 		C_Board_Communicate_HeartBeat();
 		Vision_HearBeat();
 		Vision_Sta_led_work();
+		
+		
 		osDelay(1);
 	}
 }

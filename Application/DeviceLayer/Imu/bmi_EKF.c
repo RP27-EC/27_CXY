@@ -78,11 +78,11 @@ arm_matrix_instance_f32 EKFDst;
 
 gimbal_transform_t EKFgim_trans = {
 
-    .arz = 0.0f,
+    .arz = 180.0f,
 
     .ary = 0.0f,
 
-    .arx = 180.0f,
+    .arx = 0.0f,
 
     .trans = {0.0f},
 

@@ -9,13 +9,13 @@
 #include "gimbal.h"
 #include "rp_math.h"
 
-#define ID_Board_Tx1 0xD1
-#define ID_Board_Tx2 0xD2
+#define ID_Board_Tx1 0xC1
+#define ID_Board_Tx2 0xC2
 
-#define ID_Board_Rx1 0xC1
-#define ID_Board_Rx2 0xC2
-#define ID_Board_Rx3 0xC3
-#define ID_Board_Rx4 0xC4
+#define ID_Board_Rx1 0xD1
+#define ID_Board_Rx2 0xD2
+#define ID_Board_Rx3 0xD3
+#define ID_Board_Rx4 0xD4
 
 /*整车模式01*/
 typedef struct
@@ -25,7 +25,7 @@ typedef struct
     uint8_t vision_mode : 3; // 0无视觉模式，1是普通自瞄，2是小符，3是大符，4是前哨，5是英雄  (3位 → &0x07)
     uint8_t game_start : 1;  // 0/1 比赛开始      (1位 → &0x01) 主要控制拨盘热量限制
     uint8_t my_color : 1;     // 颜色 0/1          (1位)
-    uint8_t is_hole : 1;       // 0/1 遥控器开启狗洞模式        (1位)
+	
 } Board_State_Pkt_t;
 
 
@@ -34,8 +34,8 @@ typedef struct
 {
     float shoot_speed;
     float shoot_freq;
-    uint16_t shoot_heat_max;
-    uint16_t shoot_heat;
+    int16_t shoot_heat_err; //剩余热量
+    uint16_t allowance_max; //最大允许发弹量
 } Board_Judge_Shoot_Pkt_t;
 
 
@@ -51,11 +51,10 @@ typedef struct
 /*发射指令04*/
 typedef struct
 {
-    uint8_t shoot_count; //限制最大发弹量
-    uint8_t shoot_count; // 当前发弹数量
     uint8_t launch_state : 1; // 0是关发射机构，1是开发射机构
     uint8_t shoot_mode : 1;
     uint8_t shoot_level : 1;
+	uint8_t is_hole : 1;       // 0/1 遥控器开启狗洞模式        (1位)
 } Board_Shoot_Pkt_t;
 
 /*血量信息*/
@@ -92,7 +91,7 @@ typedef struct
     uint8_t l_fric_state : 1;       // 第4位
     uint8_t dial_motor_state : 1;   // 第5位
     uint8_t vision_state : 1;       // 第6位
-    uint8_t Lift_state : 1;         //第7位
+    uint8_t lift_state : 1;         // 第7位 处于最上可控yaw时为1，否则为0
 } Board_State_Meg_t;
 
 

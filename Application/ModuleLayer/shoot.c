@@ -271,7 +271,11 @@ static void Fric_Speed_Pid(fric_t *fric)
         pid_ctrl_t *R_pid = &fric->cfg.R_pid;
 
         // 根据方向标志位决定目标值
-        int16_t R_target = fric->cfg.dir.R_direction ? target : -target;
+        int16_t R_target = 0;
+		if(fric->cfg.dir.R_direction == 1)
+			R_target = target;
+		else
+			R_target = -target;
         R_pid->target = (float)R_target;
         R_pid->measure = fric->R_motor->rx_info->encoder_speed;
 

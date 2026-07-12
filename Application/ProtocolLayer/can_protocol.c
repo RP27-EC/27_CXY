@@ -7,29 +7,31 @@
  */
 void CAN1_rxDataHandler(uint32_t rxId, uint8_t *rxBuf)
 {
-//	switch (rxId)
-//	{
+	switch (rxId)
+	{
+		case ID_GIMB_P:
+			DM_Group.motor[PITCH]->rx(DM_Group.motor[PITCH],rxBuf);
+		break;
+		case ID_DIAL:
+			dail_motor.get_info(&dail_motor,rxBuf);
+			break;
+		case ID_FRIC_L:
+			rm_motor[L_Fric].rx(&rm_motor[L_Fric], rxBuf);
+			break;
 
-//	case ID_FRIC_L:
-//		rm_motor[L_Fric].rx(&rm_motor[L_Fric], rxBuf);
-//		break;
+		case ID_FRIC_R:
+			rm_motor[R_Fric].rx(&rm_motor[R_Fric], rxBuf);
+			break;
 
-//	case ID_FRIC_R:
-//		rm_motor[R_Fric].rx(&rm_motor[R_Fric], rxBuf);
-//		break;
+		case ID_LIFT:
+			rm_motor[LIFT].rx(&rm_motor[LIFT],rxBuf);
+			break;
 
-//	case 0x11:
-//		
-//		break;
-
-//		// case ID_FRIC_UP:
-//		// 	rm_motor[UP_Fric].rx(&rm_motor[UP_Fric], rxBuf);
-//		// 	break;
-
-//	default:
-// 		break;
-//	}
+	default:
+ 		break;
+	}
 }
+
 /**
  *  @brief  CAN2 接收数据
  */
@@ -38,17 +40,20 @@ void CAN2_rxDataHandler(uint32_t canId, uint8_t *rxBuf)
 
 	switch (canId)
 	{
-	case 0xD1:
+	case ID_Board_Rx1:
 		Board_Rx_01(rxBuf);
 		break;
-	case 0xD2:
+	case ID_Board_Rx2:
 		Board_Rx_02(rxBuf);
 		break;
-	case 0xD3:
+	case ID_Board_Rx3:
 		Board_Rx_03(rxBuf);
 		break;
-	case 0xD4:
+	case ID_Board_Rx4:
 		Board_Rx_04(rxBuf);
+		break;
+	case ID_GIMB_Y:
+		DM_Group.motor[YAW]->rx(DM_Group.motor[YAW],rxBuf);
 		break;
 	default:
 		break;

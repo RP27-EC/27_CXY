@@ -34,6 +34,7 @@ typedef enum Motor_RM_Type
 	_3508_Reduction,//3508加减速箱
 	_6020_Single,//单6020电机
 	_2006_Single,//单2006电机
+	_2006_Reduction,//2006减速箱
 }Motor_RM_Type_e;
 
 typedef struct Motor_RM_Born_Info_struct_t
