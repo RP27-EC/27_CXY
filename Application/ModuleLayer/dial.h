@@ -142,6 +142,7 @@ typedef struct
     float reset_speed;      // 复位速度(dps)，负值为反转方向
     uint16_t reset_timeout; // 复位最大超时时间(ms)
     float oneshot_angle;    // 单发拨弹角度(encoder_sum单位)
+	float adjust_angle;
 } dial_reset_cfg_t;
 
 // 拨盘发射配置

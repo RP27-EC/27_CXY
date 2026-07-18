@@ -48,8 +48,12 @@
 //#define DIAL_PID
 
 /*开启无热量限制*/
-#define TEST_NO_LIMIT_SHOOT
+//#define TEST_NO_LIMIT_SHOOT
 
+
+/*视觉调试*/
+#define VISION_DEBUG
+//0.0013 38
 /* Exported types ------------------------------------------------------------*/
 
 /* Exported functions --------------------------------------------------------*/

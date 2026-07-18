@@ -18,7 +18,7 @@ uint8_t pkt_02_rx[8];
 uint8_t pkt_03_rx[8];
 uint8_t pkt_04_rx[3];
 
-uint8_t board_tx_buf1[2];
+uint8_t board_tx_buf1[8];
 uint8_t board_tx_buf2[8];
 
 /*-------------------------------------buf end--------------------------------*/
@@ -52,7 +52,7 @@ static void Board_Tx_Meg_01(uint8_t *txbuf)
 {
     // 7个电机/加上升降状态 打包到 txbuf[0]
     memcpy(&txbuf[0], &Board_Tx_Info.state_meg, 1);
-
+	txbuf[1] = Board_Tx_Info.state_meg.lift_state;
     // 视觉 yaw 目标
     uint16_t t1 = float_to_uint(Board_Tx_Info.vision_meg.vision_yaw_tar, -360.0f, 360.0f, 16);
     txbuf[2] = (t1 >> 8) & 0xFF;
@@ -103,7 +103,8 @@ void Board_Rx_Pkt_03(uint8_t *rxbuf)
     Board_Rx_Info.judge_shoot_pkt.shoot_speed = uint_to_float(t1, -50.0f, 50.0f, 16);
     Board_Rx_Info.judge_shoot_pkt.shoot_freq = uint_to_float(t2, -50.0f, 50.0f, 16);
     Board_Rx_Info.judge_shoot_pkt.shoot_heat_err = ((uint16_t)rxbuf[4] << 8) | rxbuf[5];
-    Board_Rx_Info.judge_shoot_pkt.allowance_max = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
+    //Board_Rx_Info.judge_shoot_pkt.shooter_barrel_cooling_value = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
+	Board_Rx_Info.judge_shoot_pkt.allowance_max = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
 }
 
 // 接收 PKT04：解析血量信息（直接 memcpy）
@@ -125,7 +126,7 @@ void Board_Tx_Update(Board_Tx_Info_t *Board_Tx_Info)
     // 视觉目标 (Board_Vision_Meg_t)
     Board_Tx_Info->vision_meg.vision_yaw_tar = vision.VtoE->yaw;
     Board_Tx_Info->vision_meg.vision_pitch_tar = vision.VtoE->pitch;
-    Board_Tx_Info->vision_meg.is_find_target = vision.VtoE->flag_union.bit.is_find_target;
+    Board_Tx_Info->vision_meg.is_find_target = vision.VtoE->is_find_target;
     // 电机状态 (1字节 位域结构体)
     Board_Tx_Info->state_meg.pitch_motor_state = (dm_motor[PITCH].state->status == DEV_ONLINE) ? 1 : 0;
     Board_Tx_Info->state_meg.yaw_motor_state = (dm_motor[YAW].state->status == DEV_ONLINE) ? 1 : 0;
@@ -134,11 +135,12 @@ void Board_Tx_Update(Board_Tx_Info_t *Board_Tx_Info)
     Board_Tx_Info->state_meg.r_fric_state = (rm_motor[R_Fric].state->status == DEV_ONLINE) ? 1 : 0;
     Board_Tx_Info->state_meg.dial_motor_state = (dail_motor.KT_motor_info .state_info.work_state == M_ONLINE) ? 1 : 0;
     
-    if(Gimbal.Lift.Lift_mode == LIFT_UP)
-        Board_Tx_Info->state_meg.lift_state = 1;
-    else
+    if(Gimbal.Lift.lift_state == LIFT_DOWN)
         Board_Tx_Info->state_meg.lift_state = 0;
-
+    else if(Gimbal.Lift.lift_state == LIFT_UP)
+        Board_Tx_Info->state_meg.lift_state = 2;
+	else
+		Board_Tx_Info->state_meg.lift_state = 1;
     Board_Tx_Info->state_meg.vision_state = (vision.status->rx_state == DEV_ONLINE) ? 1 : 0;
 }
 

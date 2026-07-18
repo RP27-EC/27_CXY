@@ -10,7 +10,7 @@
 
 
 //需改 且需保证电机正方向与陀螺仪正方向相同     
-#define YAW_MOTOR_ANGLE_MIDDLE      -0.662545919	//同时也是进入狗洞模式的唯一角度 2.48340917f	
+#define YAW_MOTOR_ANGLE_MIDDLE      -0.67270875	//同时也是进入狗洞模式的唯一角度 2.48340917f	
 #define PITCH_MOTOR_ANGLE_MIDDLE 	2.59309077f  //上正下负
 #define GIMBAL_MAX_MEC_ANGEL		30.f
 #define GIMBAL_MIN_MEC_ANGEL 		-8.f
@@ -147,9 +147,9 @@ typedef struct
 	float Lift_angle_Max; // 初始限位寻找角度最大值
 
 	Lift_Mode_e Lift_mode;	//PID模式
-
-	bool is_contrl_angle;	//是否可控制角度
-	bool is_find_limit;	//升降机构是否完成对位
+	
+	bool is_use_angle;
+	bool is_find_limit;	//升降机构是否完成寻找限位
 
 	int Lift_direction;	//转动正方向校准
 
@@ -158,8 +158,13 @@ typedef struct
 	uint16_t Limit_find_time_max; // 初始限位寻找最大时间
 	float Limit_find_speed; // 初始限位寻找速度
 	float Find_current; // 找到限位的电流阈值
+	float current_angle;//当前角度
 	float Lift_distance;	//中间行程
 	float Lift_timeout;	//升降超时
+
+	bool block_flag;
+	float block_time;
+	float block_time_max;
 
 	float angle_tolerance; //升降角度复位允许误差
 }Lift_t;

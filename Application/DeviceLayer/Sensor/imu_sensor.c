@@ -214,7 +214,7 @@ void imu_init(struct imu_struct *self)
 
 		imu_sensor.info->offset_info.gy_offset = 0.f;
 
-		imu_sensor.info->offset_info.gz_offset = 0.00100000005f;
+		imu_sensor.info->offset_info.gz_offset = 0.00099f;//26.25
 
 	}
 

@@ -127,7 +127,7 @@ static void Fric_State_Sleep(fric_t *fric)
     fric->R_motor->tx_info->torque = 0;
 
     // 目标速度不为0 且 rc_online=true，跳转至运行状态
-    if ((my_abs(fric->info.target_speed) >= 1.0f) && (fric->info.rc_online == 1))
+    if ((my_abs(fric->info.target_speed) >= 1.0f) && (fric->info.rc_online != 0))
     {
         fric->state = FRIC_STATE_RUN;
         fric->state_enter_tick = HAL_GetTick();

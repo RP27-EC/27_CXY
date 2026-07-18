@@ -122,7 +122,7 @@ void Vision_DataRx(uint8_t *rxBuf)
 
 		/* 帧头CRC8校验*/
 
-		if (Verify_CRC8_Check_Sum(rxBuf, 6) == true)
+		if (Verify_CRC8_Check_Sum(rxBuf, 3) == true)
 
 		{
 
@@ -154,7 +154,7 @@ void Vision_DataTx(void)
 
 	memcpy(vision_txBuf, &vision_tx_info, sizeof(ElectricalToVisionFrame)); // 设置发送信息
 
-	Append_CRC8_Check_Sum(vision_txBuf, 6); // 添加CRC8校验码
+	Append_CRC8_Check_Sum(vision_txBuf, 3); // 添加CRC8校验码
 
 	Append_CRC16_Check_Sum(vision_txBuf, sizeof(ElectricalToVisionFrame)); // 添加CRC16校验码
 
@@ -187,21 +187,26 @@ void USART1_rxDataHandler(uint8_t *rxBuf) // 后续换指针
 void Vision_Board_Update(void)
 
 {
-	vision.EtoV->flag_union.bit.big_energy_engine_mode =(car.vision_flag.big_energy_engine_flag) ? 1 : 0;
-	vision.EtoV->flag_union.bit.small_energy_engine_mode = (car.vision_flag.small_energy_engine_flag) ? 1 : 0;
-	vision.EtoV->flag_union.bit.is_ready = car.vision_flag.is_ready_shoot ? 1 : 0;
-	vision.EtoV->flag_union.bit.outpost_mode = (car.vision_flag.outpost_flag) ? 1 : 0;
-	vision.EtoV->flag_union.bit.own_color = Board_Rx_Info.state_pkt.my_color;
+	vision.EtoV->SOF = 0XA5;
+
+	vision.EtoV->is_ready = car.vision_flag.is_ready_shoot ? 1 : 0;
+	vision.EtoV->my_color = Board_Rx_Info.state_pkt.my_color;
+	vision.EtoV->is_start = Board_Rx_Info.state_pkt.game_start;
 
 	vision.EtoV->yaw = Gimbal.base_info.yaw_imu_angle;
-
 	vision.EtoV->pitch = Gimbal.base_info.pitch_imu_angle;
-
-	vision.EtoV->pitch_speed = Gimbal.base_info.pitch_imu_speed;
-
- 	vision.EtoV->yaw_speed = Gimbal.base_info.yaw_imu_speed;
-
 	vision.EtoV->roll = imu_sensor.info->base_info.roll;
+
+	if (car.vision_flag.normal_vision_flag)
+		vision.EtoV->mode = 1;
+	else if(car.vision_flag.outpost_flag)
+		vision.EtoV->mode = 4;
+	else if(car.vision_flag.vision_mode_flag == false)
+		vision.EtoV->mode = 1;
+	else if(car.vision_flag.big_energy_engine_flag)
+		vision.EtoV->mode = 3;
+	else if(car.vision_flag.small_energy_engine_flag)
+		vision.EtoV->mode = 2;
 } 
 
 /**
@@ -306,7 +311,7 @@ void Vision_led_work(void)
 		led.state = LED_ON;
 	}
 
-	else if (vision.VtoE->flag_union.bit.is_find_target == 1)
+	else if (vision.VtoE->is_find_target == 1)
 
 	{
 

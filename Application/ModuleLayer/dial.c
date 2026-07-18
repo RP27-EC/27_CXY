@@ -103,12 +103,12 @@ shoot_t shoot = {
         .high_heat_shooting_freq = 18.f, // 高热量时射频(Hz)
 
         .low_heat_value = 100.f,        // 低热量判断阈值
-        .low_heat_shooting_freq = 18.f, // 低热量时射频(Hz)
+        .low_heat_shooting_freq = 15.f, // 低热量时射频(Hz)
 
         .very_low_heat_value = 90.f,        // 极低热量判断阈值
         .very_low_heat_shooting_freq = 2.f, // 极低热量时射频(Hz)
 
-        .no_shoot_heat_value = 30.f, // 停止发射热量阈值
+        .no_shoot_heat_value = 10.f, // 停止发射热量阈值
     },
     .init = Shoot_Init, // 绑定初始化函数
     .send = Shoot_send_dial_output, // 绑定拨盘输出函数
@@ -208,8 +208,8 @@ static void Shoot_Extern_Update(shoot_t *shoot)
     // 摩擦轮离线检测: 左或右任一离线则视为离线
     if (shoot->extern_input.fric.L_online == 0 || shoot->extern_input.fric.R_online == 0)
     {
-        // shoot->fric_online_flag = false;
-        shoot->fric_online_flag = true; // 拆头时调试拨盘用，注意修改
+        shoot->fric_online_flag = false;
+        //shoot->fric_online_flag = true; // 拆头时调试拨盘用，注意修改
     }
     else
     {
@@ -264,9 +264,9 @@ static void Shoot_State_Machine(shoot_t *shoot)
     float oneshot = shoot->cfg.reset_cfg.oneshot_angle;                // 单发拨弹角度
 
     // ============================ 全局优先级: 关控 → S_SLEEP ============================
-    if (shoot->extern_input.shoot_flag.Enable_Shoot_Flag == false )
-//		||
-//        car.car_ctrl_mode == SLEEP_MODE)
+    if (shoot->extern_input.shoot_flag.Enable_Shoot_Flag == false 
+		||
+        car.car_ctrl_mode == SLEEP_MODE)
     {
         // 关控时强制进入睡眠状态，清除所有状态标志
         shoot->state = S_SLEEP;
@@ -508,6 +508,34 @@ static void Shoot_State_Machine(shoot_t *shoot)
 	last_shoot_flag = shoot->extern_input.shoot_flag.Shoot_Ctrl_Flag;
 }
 
+///*热量前馈算法 2026.6.18*/
+//static void Shoot_Heat_Limit(shoot_t *shoot)
+//{
+//	#ifdef TEST_NO_LIMIT_SHOOT
+//	shoot->dail_info.target_speed = 16.f;
+//    //TEST_NO_LIMIT_SHOOT 模式: 跳过热量限制，使用最高射频
+//	#else
+//	float result = shoot->dail_info.target_speed;
+//	float cool_value = (float)Board_Rx_Info.judge_shoot_pkt.shooter_barrel_cooling_value; // 机器人当前热量冷却增益
+//	float heat = (float)(Board_Rx_Info.judge_shoot_pkt.shoot_heat_err); //机器人剩余热量
+//	static float one_shoot_heat = 10.0f; //机器人打一发弹丸消耗的热量
+//	float t = 10 * (heat + 0.8f * cool_value)/result;//射击时间
+//   
+//   if(heat + cool_value/5>=26.f)//防止双发直接超热量
+//   {
+//	 result = (10.f * heat - cool_value) / t + cool_value / cool_value;
+//	 result = constrain(result, 0.f, 16.f);//最大18hz
+//   }
+//   else if(heat + cool_value / 5> 16.f)
+//   {
+//		result=(cool_value/one_shoot_heat)*0.2f;
+//		result = constrain(result, 0.f, 16.f);//最大18hz
+//   }
+//   shoot->dail_info.target_speed = result * shoot->heat_limit_info.k_from_shooting_freq_to_dail_speed*0.9;
+//   #endif
+//}
+
+
 /**
  * @brief  热量限制控制
  * @param  shoot: 发射机构结构体指针
@@ -529,14 +557,14 @@ static void Shoot_Heat_Limit(shoot_t *shoot)
 #else
     // 计算剩余热量
     uint16_t heat_remain = Board_Rx_Info.judge_shoot_pkt.shoot_heat_err;
-    uint8_t is_in_match = (Board_Rx_Info.state_pkt.game_start);//?
+    uint8_t is_in_match = (Board_Rx_Info.state_pkt.game_start);
     uint8_t stop_shoot = 0;
 
     // 比赛中: 热量低于阈值或弹丸用完则停止发射
     if (is_in_match)
     {
-        if (heat_remain <= shoot->heat_limit_info.no_shoot_heat_value )
-        //||My_Judge.org_info->projectile_allowance.projectile_allowance_17mm <= 0) 暂时注释允许发弹量
+        if (heat_remain <= shoot->heat_limit_info.no_shoot_heat_value \
+        || Board_Rx_Info.judge_shoot_pkt.allowance_max <= 0) 
         {
             stop_shoot = 1;
         }
@@ -967,7 +995,7 @@ void Shoot_Work(shoot_t *shoot)
     // 5. 弹速统计: 更新均值/极差/标准差/方差 (debug用途)
     Shoot_Speed_Statistics_Update(shoot);
 
-    // 6. 首弹时间更新: 记录拨弹到射出时间差
+    // 6. 首弹时间更新:  
     Shoot_First_Bullet_Time_Update(shoot);
 
     // 7. 拨盘PID计算: 根据 ctrl_mode 计算电流输出并下发电机

@@ -35,7 +35,8 @@ typedef struct
     float shoot_speed;
     float shoot_freq;
     int16_t shoot_heat_err; //剩余热量
-    uint16_t allowance_max; //最大允许发弹量
+    //uint16_t shooter_barrel_cooling_value; //最大允许发弹量
+	uint16_t allowance_max; //最大允许发弹量
 } Board_Judge_Shoot_Pkt_t;
 
 
@@ -91,7 +92,7 @@ typedef struct
     uint8_t l_fric_state : 1;       // 第4位
     uint8_t dial_motor_state : 1;   // 第5位
     uint8_t vision_state : 1;       // 第6位
-    uint8_t lift_state : 1;         // 第7位 处于最上可控yaw时为1，否则为0
+    uint8_t lift_state : 2;         // 第7位 最下0 中间1 最上2
 } Board_State_Meg_t;
 
 

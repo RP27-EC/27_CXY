@@ -61,6 +61,7 @@ void car_update(car_t *car)
     break;
   case 2: // 键鼠
     car->car_ctrl_mode = KEY_CTRL_MODE;
+	break;
   default:
     car->car_ctrl_mode = SLEEP_MODE; // 默认安全模式
     break;
@@ -71,7 +72,7 @@ void car_update(car_t *car)
 	  car->car_ctrl_mode = SLEEP_MODE;
 
   /*接收车体模式*/
-  switch (Board_Rx_Info.state_pkt.car_state)
+  switch (Board_Rx_Info.state_pkt.gimbal_mode)
   {
     case 0:
       car->car_move_mode = mec_CAR;
@@ -135,13 +136,29 @@ static void Car_Shoot_Mode_Update(car_t *car)
   //开启视觉时发射标志位交予控制，在dial中被调用
   if(car->vision_flag.normal_vision_flag == true)
   {
-    car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->flag_union.bit.is_enable_shootting;
-    
+  
     //遥控控单连，键鼠视觉控
     if (car->car_ctrl_mode == KEY_CTRL_MODE)
-      car->shoot_flag.Shoot_Mode = Vision->VtoE->flag_union.bit.is_keep_shooting;
+	{
+      car->shoot_flag.Shoot_Mode = Vision->VtoE->is_keep_shooting;
+	  car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
+	}
     else
-      car->shoot_flag.Shoot_Mode = Board_Rx_Info.shoot_pkt.shoot_mode;
+	{
+		//视觉控单连
+		car->shoot_flag.Shoot_Mode = Vision->VtoE->is_keep_shooting;
+		car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
+		//视觉控连发
+//		car->shoot_flag.Shoot_Mode = Board_Rx_Info.shoot_pkt.shoot_mode;
+//		if(Board_Rx_Info.shoot_pkt.shoot_mode == 0)
+//		{
+//			 car->shoot_flag.Shoot_Ctrl_Flag = Board_Rx_Info.shoot_pkt.shoot_level;
+//		}
+//		else
+//		{
+//			 car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
+//		}
+	}
   }
   //非视觉模式下给下板控
   else if(car->vision_flag.vision_mode_flag == false)
@@ -150,7 +167,7 @@ static void Car_Shoot_Mode_Update(car_t *car)
     car->shoot_flag.Shoot_Mode = Board_Rx_Info.shoot_pkt.shoot_mode;
   }
 
-  if(rm_motor[L_Fric].state->status == DEV_OFFLINE && rm_motor[R_Fric].state->status == DEV_OFFLINE\
+  if(rm_motor[L_Fric].state->status != DEV_OFFLINE && rm_motor[R_Fric].state->status != DEV_OFFLINE\
       && shoot.state == S_WAITING && car->vision_flag.vision_mode_flag == true)
   {
     car->vision_flag.is_ready_shoot = 1;
