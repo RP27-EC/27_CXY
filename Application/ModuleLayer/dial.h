@@ -64,6 +64,8 @@
 #include "rc_sensor.h"
 #include "rp_math.h"
 #include "device.h"
+#include "shoot.h"
+#include "gimbal.h"
 /* Export define ------------------------------------------------------------------*/
 #define ALL_SHOOT_MOTOR_ONLINE (shoot.fric_online_flag == true && shoot.dail_offline_flag == false)
 /*==============================================================================
@@ -76,6 +78,7 @@ typedef struct
     int32_t encoder_sum; // 编码器累计角度值
     int16_t speed;       // 转速(dps)
     int16_t current;     // 电流
+	int16_t encoder;
 } shoot_dial_extern_t;
 
 /*摩擦轮在线状态*/
@@ -139,7 +142,7 @@ typedef struct
 // 拨盘复位配置
 typedef struct
 {
-    float reset_speed;      // 复位速度(dps)，负值为反转方向
+    float reset_angle;      // 复位速度(dps)，负值为反转方向
     uint16_t reset_timeout; // 复位最大超时时间(ms)
     float oneshot_angle;    // 单发拨弹角度(encoder_sum单位)
 	float adjust_angle;
@@ -218,6 +221,7 @@ typedef struct
     dial_ctrl_mode_e ctrl_mode;           // 当前控制模式
     float target_anglesum;                // 角度环目标角度(encoder_sum as float)
     float target_speed;                   // 速度环目标转速(dps)
+	float target_init_angle; 
     int16_t dail_output;                  // 拨盘最终电流输出
     dail_pid_info_t *dail_pid; 		// 拨盘PID结构体
 } shoot_dail_info_t;

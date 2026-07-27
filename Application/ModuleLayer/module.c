@@ -12,7 +12,7 @@ void Module_Work(void)
 {
     car.update(&car);
     Gimbal.work(&Gimbal);
-    fric.work(&fric);
     shoot.work(&shoot);
+	fric.work(&fric);
     Board_Tx_Update(&Board_Tx_Info);
 }

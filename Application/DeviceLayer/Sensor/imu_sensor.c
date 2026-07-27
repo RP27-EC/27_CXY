@@ -214,7 +214,7 @@ void imu_init(struct imu_struct *self)
 
 		imu_sensor.info->offset_info.gy_offset = 0.f;
 
-		imu_sensor.info->offset_info.gz_offset = 0.00099f;//26.25
+		imu_sensor.info->offset_info.gz_offset = 0.00099f;
 
 	}
 
@@ -351,8 +351,10 @@ void imu_update(imu_sensor_t *imu_sen)
 
 
     imu_info_t *imu_info = imu_sen->info;
-
 	
+	if(imu_sensor.info->base_info.temperature >= 40)
+			imu_sensor.info->offset_info.gz_offset = 0.002f;
+		//26.25 0.002 50.5
 
 	/* 获取陀螺仪数据 */
 

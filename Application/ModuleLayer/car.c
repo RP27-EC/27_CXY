@@ -92,6 +92,12 @@ void car_update(car_t *car)
   else
     car->shoot_flag.Enable_Shoot_Flag = true;
 
+  car->vision_flag.vision_mode_flag = false;
+  car->vision_flag.normal_vision_flag = false;
+  car->vision_flag.small_energy_engine_flag = false;
+  car->vision_flag.big_energy_engine_flag = false;
+  car->vision_flag.outpost_flag = false;
+  car->vision_flag.hero_flag = false;
   /*接收视觉模式*/
   switch(Board_Rx_Info.state_pkt.vision_mode)
   {
@@ -134,30 +140,32 @@ static void Car_Shoot_Mode_Update(car_t *car)
   Board_Rx_Info_t board_rx;
 
   //开启视觉时发射标志位交予控制，在dial中被调用
-  if(car->vision_flag.normal_vision_flag == true)
+  if(car->vision_flag.vision_mode_flag == true)
   {
   
     //遥控控单连，键鼠视觉控
     if (car->car_ctrl_mode == KEY_CTRL_MODE)
 	{
       car->shoot_flag.Shoot_Mode = Vision->VtoE->is_keep_shooting;
-	  car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
+	//按下鼠标左键才给控发射
+	  if(Board_Rx_Info.shoot_pkt.shoot_level == 1)
+	  {
+		car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
+	  }
 	}
     else
 	{
-		//视觉控单连
-		car->shoot_flag.Shoot_Mode = Vision->VtoE->is_keep_shooting;
-		car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
 		//视觉控连发
-//		car->shoot_flag.Shoot_Mode = Board_Rx_Info.shoot_pkt.shoot_mode;
-//		if(Board_Rx_Info.shoot_pkt.shoot_mode == 0)
-//		{
-//			 car->shoot_flag.Shoot_Ctrl_Flag = Board_Rx_Info.shoot_pkt.shoot_level;
-//		}
-//		else
-//		{
-//			 car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
-//		}
+		if( Board_Rx_Info.shoot_pkt.shoot_mode == 0)
+		{
+			car->shoot_flag.Shoot_Mode = Board_Rx_Info.shoot_pkt.shoot_mode;
+			car->shoot_flag.Shoot_Ctrl_Flag = Board_Rx_Info.shoot_pkt.shoot_level;
+		}
+		else
+		{
+			car->shoot_flag.Shoot_Mode = Vision->VtoE->is_keep_shooting;
+			car->shoot_flag.Shoot_Ctrl_Flag = Vision->VtoE->is_enable_shootting;
+		}
 	}
   }
   //非视觉模式下给下板控

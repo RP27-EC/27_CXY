@@ -28,7 +28,6 @@ static void gravity_f_cal(gimbal_t *gimbal);//重力补偿
 static void Gimbal_Pid_cal(gimbal_t *gimbal);//pid更新
 static void Gimbal_protect(gimbal_t *gimbal);//云台最高优先级保护
 
-// static void Gimbal_lift_Init(gimbal_t *gimbal);//升降复位
 static void Gimbal_Dog_reset_angle_check(gimbal_t *gimbal);//云台到位检查
 static void Gimbal_DOG_Mode_change(gimbal_t *gimbal);//狗洞模式切换
 
@@ -55,9 +54,9 @@ gimbal_t Gimbal =
     .init_info = {
         .init_time = 0,
         .init_time_max = 6000.f,
-        .pitchInitAngleTolerance = 1.0f,
-        .yawInitAngleTolerance = 1.0f,
-        .yawInitSpeedTolerance = 1.0f,
+        .pitchInitAngleTolerance = 2.0f,
+        .yawInitAngleTolerance = 2.0f,
+        .yawInitSpeedTolerance = 2.0f,
         .pitchInitSpeedTolerance = 30.f,
     },
 
@@ -69,9 +68,9 @@ gimbal_t Gimbal =
         .lift_state = LIFT_DTU,
 
         //需调试
-        .Find_current = 1800.0f,
-        .Lift_distance = 3890.0f,
-        .Limit_find_speed = 1200.0f,
+        .Find_current = 1000.0f,
+        .Lift_distance = 1800.0f,//1880
+        .Limit_find_speed = 1000.0f,
 		.block_time = 0,
 		.block_time_max = 60,
         .Limit_find_time = 0,
@@ -88,7 +87,7 @@ gimbal_t Gimbal =
     },
     };
 	
-	float find_target_test = 1600.f;
+	float find_target_test = 1000.f;
 	float	find_target_test_2 = 8000.f;
 
 /* Private member functions ---------------------------------------------------*/
@@ -149,10 +148,10 @@ static void Gimbal_info_update(gimbal_t *gimbal)
 	
 	if(gimbal->lift_motor->state->status == DEV_ONLINE)
 	{
-		gimbal->Lift.current_angle = gimbal->base_info.Lift_Motor_angle = gimbal->lift_motor->rx_info->motor_angle_sum - \
+		gimbal->Lift.current_angle = gimbal->lift_motor->rx_info->motor_angle_sum - \
 									 gimbal->Lift.Lift_angle_Min;
 	}
-	else if(gimbal->lift_motor->state->status == DEV_ONLINE && last_motor_mode == DEV_OFFLINE)
+	else if(gimbal->lift_motor->state->status == DEV_ONLINE && last_motor_mode == DEV_OFFLINE && gimbal->init_info.init_flag == 1)
 	{
 		gimbal->Lift.Lift_angle_Min = gimbal->base_info.Lift_Motor_angle - gimbal->Lift.current_angle;
 		gimbal->Lift.Lift_angle_Max = gimbal->Lift.Lift_angle_Min + gimbal->Lift.Lift_distance;
@@ -180,11 +179,6 @@ static void Gimbal_info_update(gimbal_t *gimbal)
         gimbal->Lift.Lift_angle_Max = 0.0f;
 						
     }
-	if(gimbal->lift_motor->state->status == DEV_ONLINE && last_motor_mode == DEV_OFFLINE)
-	{
-		gimbal->Lift.Lift_angle_Min = 0.0f;
-        gimbal->Lift.Lift_angle_Max = 0.0f;
-	}
 	
 	
 	if(car.car_ctrl_mode == SLEEP_MODE)
@@ -216,7 +210,7 @@ static void Gimbal_info_update(gimbal_t *gimbal)
 
 
         //升降指令
-        if (Board_Rx_Info.shoot_pkt.is_hole == 1 && gimbal->Lift.lift_state == LIFT_UP)
+        if (Board_Rx_Info.shoot_pkt.is_hole == 1 && gimbal->Lift.lift_state != LIFT_UTD && gimbal->Lift.lift_state != LIFT_DOWN && gimbal->init_info.init_flag == 1)
         {
             gimbal->Lift.lift_state = LIFT_UTD;
 			if(gimbal->Lift.is_use_angle == 0)
@@ -227,7 +221,7 @@ static void Gimbal_info_update(gimbal_t *gimbal)
 			}
         }
         
-        else if (Board_Rx_Info.shoot_pkt.is_hole == 0 && gimbal->Lift.lift_state == LIFT_DOWN)
+        else if (Board_Rx_Info.shoot_pkt.is_hole == 0 && gimbal->Lift.lift_state != LIFT_DTU && gimbal->Lift.lift_state != LIFT_UP && gimbal->init_info.init_flag == 1)
 		{
             gimbal->Lift.lift_state = LIFT_DTU;
 			if(gimbal->Lift.is_use_angle == 0)
@@ -304,7 +298,7 @@ static void block_check(gimbal_t *gimbal)
                             gimbal->Lift.Lift_angle_Min = (float)gimbal->lift_motor->rx_info->motor_angle_sum + 50;
                             gimbal->Lift.Lift_angle_Max = gimbal->Lift.Lift_angle_Min + gimbal->Lift.Lift_distance;
 							gimbal->Lift.Find_current = find_target_test_2;
-							gimbal->Lift.block_time_max = 500;
+							gimbal->Lift.block_time_max = 800;
                         }
                         if(gimbal->Lift.Lift_mode == LIFT_ANGLE)
                         {
@@ -542,7 +536,7 @@ static void Gimbal_Pid_cal(gimbal_t *gimbal)
 
         gimbal->base_info.output_gimbal_y = gimbal->all_pid_calc(&gimbal->pid_info.yaw_mec_outer,
                                                                  &gimbal->pid_info.yaw_mec_inner, gimbal->pid_info.yaw_target,
-                                                                 gimbal->base_info.yaw_mec_360_angle, gimbal->base_info.yaw_mec_speed, -1, 3);
+                                                                 gimbal->base_info.yaw_mec_360_angle,gimbal->base_info.yaw_imu_speed, -1, 3);
         break;
     case G_GYRO:
         // 获取目标量
@@ -639,45 +633,45 @@ static void Gimbal_Pid_Init(gimbal_t *gimbal)
     gimbal->pid_info.pitch_gyro_inner.out_max = 10.0f;
 
     // yaw 机械外环 PID
-    gimbal->pid_info.yaw_mec_outer.kp = 0.6f;
+    gimbal->pid_info.yaw_mec_outer.kp = 20.0f;
     gimbal->pid_info.yaw_mec_outer.ki = 0.0f;
     gimbal->pid_info.yaw_mec_outer.kd = 0.0f;
     gimbal->pid_info.yaw_mec_outer.integral_max = 0.0f;
-    gimbal->pid_info.yaw_mec_outer.out_max = 30.0f;
+    gimbal->pid_info.yaw_mec_outer.out_max = 500.0f;
 
     // yaw 机械内环 PID
-    gimbal->pid_info.yaw_mec_inner.kp = 1.3f;
+    gimbal->pid_info.yaw_mec_inner.kp = 0.1f;
     gimbal->pid_info.yaw_mec_inner.ki = 0.0f;
     gimbal->pid_info.yaw_mec_inner.kd = 0.0f;
     gimbal->pid_info.yaw_mec_inner.integral_max = 0.0f;
     gimbal->pid_info.yaw_mec_inner.out_max = 10.0f;
 
     // pitch 机械外环 PID
-    gimbal->pid_info.pitch_mec_outer.kp = 1.2f;
+    gimbal->pid_info.pitch_mec_outer.kp = 1.6f;
     gimbal->pid_info.pitch_mec_outer.ki = 0.0f;
     gimbal->pid_info.pitch_mec_outer.kd = 0.0f;
     gimbal->pid_info.pitch_mec_outer.integral_max = 500.0f;
     gimbal->pid_info.pitch_mec_outer.out_max = 10.0f;
 
     // pitch 机械内环 PID
-    gimbal->pid_info.pitch_mec_inner.kp = 1.3f;
+    gimbal->pid_info.pitch_mec_inner.kp = 1.2f;
     gimbal->pid_info.pitch_mec_inner.ki = 0.0f;
     gimbal->pid_info.pitch_mec_inner.kd = 0.0f;
     gimbal->pid_info.pitch_mec_inner.integral_max = 0.0f;
     gimbal->pid_info.pitch_mec_inner.out_max = 10.0f;
 
     //抬升机构PID
-    gimbal->pid_info.lift_angle_outer.kp = 8.0f;
+    gimbal->pid_info.lift_angle_outer.kp = 150.0f;
     gimbal->pid_info.lift_angle_outer.ki = 0.0f;
     gimbal->pid_info.lift_angle_outer.kd = 0.0f;
     gimbal->pid_info.lift_angle_outer.integral_max = 0.0f;
     gimbal->pid_info.lift_angle_outer.out_max = 1000.0f;
 
-    gimbal->pid_info.lift_angle_inner.kp = 40.0f;
+    gimbal->pid_info.lift_angle_inner.kp = 60.0f;
     gimbal->pid_info.lift_angle_inner.ki = 0.0f;
     gimbal->pid_info.lift_angle_inner.kd = 0.0f;
     gimbal->pid_info.lift_angle_inner.integral_max = 0.0f;
-    gimbal->pid_info.lift_angle_inner.out_max = 1000.0f;
+    gimbal->pid_info.lift_angle_inner.out_max = 1800.0f;
 
     gimbal->pid_info.lift_speed_pid.kp = 8.0f;
     gimbal->pid_info.lift_speed_pid.ki = 0.0f;

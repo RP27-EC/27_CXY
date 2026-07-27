@@ -192,7 +192,7 @@ static pid_ctrl_t dail_position_inner =
 
 static pid_ctrl_t dail_speed =
     {
-        .kp = 0.15f,
+        .kp = 0.4f,
         .ki = 0.2f,
         .kd = 0.f,
         .integral_max = 500.f,
@@ -200,15 +200,15 @@ static pid_ctrl_t dail_speed =
 };
 static pid_ctrl_t dail_position_out =
     {
-        .kp = 0.20f,
+        .kp = 0.18f,
         .ki = 0.f,
         .kd = 0.f,
         .integral_max = 0.f,
-        .out_max = 1000000.f,
+        .out_max = 7000.f,
 };
 static pid_ctrl_t dail_position_inner =
     {
-        .kp = 0.1f,
+        .kp = 0.16f,
         .ki = 0.f,
         .kd = 0.f,
         .integral_max = 0.f,

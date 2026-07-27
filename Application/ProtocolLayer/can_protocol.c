@@ -2,6 +2,7 @@
 #include "chassis.h"
 #include "motor.h"
 #include "communicate.h"
+bool is_open = 1;
 /**
  *  @brief  CAN1 接收数据
  */
@@ -24,7 +25,10 @@ void CAN1_rxDataHandler(uint32_t rxId, uint8_t *rxBuf)
 			break;
 
 		case ID_LIFT:
+			if(is_open)
+			{
 			rm_motor[LIFT].rx(&rm_motor[LIFT],rxBuf);
+			}
 			break;
 
 	default:

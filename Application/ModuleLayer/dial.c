@@ -62,19 +62,19 @@ shoot_t shoot = {
     .cfg = {
         .stuck_cfg = {
             .speed_max = 10.0f,    // 速度低于此值认为堵转
-            .current_min = 150.0f, // 电流大于此值认为堵转
-            .block_time_max = 100, // 确认堵转所需连续 tick 数
+            .current_min = 400.0f, // 电流大于此值认为堵转
+            .block_time_max = 200, // 确认堵转所需连续 tick 数
             .current_dir = 1,      // 堵转电流方向
         },
         .reset_cfg = {
-            .reset_speed = -6000.0f, // 复位速度(负值为反转)
-            .reset_timeout = 1000,   // 复位最大超时时间(ms)
+            .reset_angle = 31259.0f, // 复位角度(负值为反转)
+            .reset_timeout = 1000.0f,   // 复位最大超时时间(ms)
             // 单发拨弹角度 = 一圈编码器值 / 减速比 / 弹丸数
             .oneshot_angle = DIAL_MAX_ENCODER_VALUE,
         },
         .shoot_cfg = {
             .stop_angle_err_max = 500.0f, // 判断到位误差阈值
-            .single_shoot_timeout = 300,
+            .single_shoot_timeout = 500,
             // 单发发射超时(ms)
             .handle_stuck_reverse_timeout = 200, // 卡弹反转处理超时(ms)
             .handle_stuck_reload_timeout = 200,  // 卡弹复位重载超时(ms)
@@ -105,10 +105,10 @@ shoot_t shoot = {
         .low_heat_value = 100.f,        // 低热量判断阈值
         .low_heat_shooting_freq = 15.f, // 低热量时射频(Hz)
 
-        .very_low_heat_value = 90.f,        // 极低热量判断阈值
-        .very_low_heat_shooting_freq = 2.f, // 极低热量时射频(Hz)
+        .very_low_heat_value = 50.f,        // 极低热量判断阈值
+        .very_low_heat_shooting_freq = 5.0f, // 极低热量时射频(Hz)
 
-        .no_shoot_heat_value = 10.f, // 停止发射热量阈值
+        .no_shoot_heat_value = 30.f, // 停止发射热量阈值
     },
     .init = Shoot_Init, // 绑定初始化函数
     .send = Shoot_send_dial_output, // 绑定拨盘输出函数
@@ -184,7 +184,8 @@ static void Shoot_Extern_Update(shoot_t *shoot)
     shoot->extern_input.dial.encoder_sum = rx->encoder_sum;
     shoot->extern_input.dial.speed = rx->speed;
     shoot->extern_input.dial.current = rx->current;
-
+	shoot->extern_input.dial.encoder = rx->encoder;
+	
     // ======================== 摩擦轮在线状态 ========================
     shoot->extern_input.fric.L_online = (rm_motor[L_Fric].state->status == DEV_ONLINE) ? 1 : 0;
     shoot->extern_input.fric.R_online = (rm_motor[R_Fric].state->status == DEV_ONLINE) ? 1 : 0;
@@ -265,8 +266,8 @@ static void Shoot_State_Machine(shoot_t *shoot)
 
     // ============================ 全局优先级: 关控 → S_SLEEP ============================
     if (shoot->extern_input.shoot_flag.Enable_Shoot_Flag == false 
-		||
-        car.car_ctrl_mode == SLEEP_MODE)
+		|| car.car_ctrl_mode == SLEEP_MODE
+		|| Gimbal.Lift.lift_state != LIFT_UP)
     {
         // 关控时强制进入睡眠状态，清除所有状态标志
         shoot->state = S_SLEEP;
@@ -275,7 +276,7 @@ static void Shoot_State_Machine(shoot_t *shoot)
         shoot->dial_arrived_flag = false;
         shoot->dial_block_flag = false;
         shoot->dail_info.ctrl_mode = DIAL_SLEEP;
-        shoot->dail_info.target_speed = 0;
+        shoot->dail_info.target_init_angle = shoot->extern_input.dial.encoder;
         shoot->adapt_info.final_fric_target_speed = 0;
         return;
     }
@@ -290,7 +291,7 @@ static void Shoot_State_Machine(shoot_t *shoot)
     case S_SLEEP:
         // 摩擦轮/拨盘完全卸力
         shoot->dail_info.ctrl_mode = DIAL_SLEEP;
-        shoot->dail_info.target_speed = 0;
+        shoot->dail_info.target_init_angle = shoot->extern_input.dial.encoder;
         shoot->dail_info.target_anglesum = 0;
         shoot->adapt_info.final_fric_target_speed = 0;
         shoot->adapt_info.add_fric_speed = 0;
@@ -303,11 +304,14 @@ static void Shoot_State_Machine(shoot_t *shoot)
     /*--------------------------------------- S_INIT ---------------------------------------*/
     case S_INIT:
         // 摩擦轮开转，拨盘速度环反转进行初始化复位
-        shoot->dail_info.ctrl_mode = DIAL_SPEED;
-        shoot->dail_info.target_speed = shoot->cfg.reset_cfg.reset_speed;
+		if(fric.info.R_speed_abs >= 5000 && fric.info.L_speed_abs >= 5000)
+		{
+			shoot->dail_info.ctrl_mode = DIAL_ANGLE;
+			shoot->dail_info.target_init_angle = shoot->cfg.reset_cfg.reset_angle;
+		
 
         // 堵转检测 → 初始化完成，进入等待就绪状态
-        if (Shoot_Dial_Block_Check(shoot))
+        if (my_abs(shoot->dail_info.target_init_angle - shoot->extern_input.dial.encoder) <= 500)
         {
             shoot->dail_init_angle = current_angle; // 记录退出角度作为后续连发基准
             shoot->dail_info.target_anglesum = current_angle;
@@ -326,6 +330,7 @@ static void Shoot_State_Machine(shoot_t *shoot)
             shoot->state_tick = 0;
             shoot->stuck_block_tick = 0;
         }
+		}
         break;
 
     /*--------------------------------------- S_WAITING ---------------------------------------*/
@@ -872,10 +877,19 @@ static void Shoot_Dial_Pid_Cal(shoot_t *shoot)
 		
 		#ifdef DIAL_PID
 		#else
-		shoot->dail_info.dail_pid->position_outer->target = shoot->dail_info.target_anglesum;
+		if(shoot->state == S_INIT)
+		{
+			shoot->dail_info.dail_pid->position_outer->target = shoot->dail_info.target_init_angle;
+			shoot->dail_info.dail_pid->position_outer->measure = (float)shoot->extern_input.dial.encoder;
+		}
+		else
+		{
+			shoot->dail_info.dail_pid->position_outer->target = shoot->dail_info.target_anglesum;
+			shoot->dail_info.dail_pid->position_outer->measure = measure_angle;
+		}
 		#endif
         // 角度环串级PID: 外环角度 → 内环速度 → 电流输出
-        shoot->dail_info.dail_pid->position_outer->measure = measure_angle;
+        
         pid_err_cal(shoot->dail_info.dail_pid->position_outer);
         single_pid_ctrl(shoot->dail_info.dail_pid->position_outer);
         // 内环速度目标值 = 外环PID输出

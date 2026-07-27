@@ -197,16 +197,20 @@ void Vision_Board_Update(void)
 	vision.EtoV->pitch = Gimbal.base_info.pitch_imu_angle;
 	vision.EtoV->roll = imu_sensor.info->base_info.roll;
 
-	if (car.vision_flag.normal_vision_flag)
+//	if (car.vision_flag.normal_vision_flag)
+//		vision.EtoV->mode = 1;
+//	else if(car.vision_flag.outpost_flag)
+//		vision.EtoV->mode = 4;
+//	else if(car.vision_flag.vision_mode_flag == false)
+//		vision.EtoV->mode = 1;
+//	else if(car.vision_flag.big_energy_engine_flag)
+//		vision.EtoV->mode = 3;
+//	else if(car.vision_flag.small_energy_engine_flag)
+//		vision.EtoV->mode = 2;
+	if(Board_Rx_Info.state_pkt.vision_mode == 0)
 		vision.EtoV->mode = 1;
-	else if(car.vision_flag.outpost_flag)
-		vision.EtoV->mode = 4;
-	else if(car.vision_flag.vision_mode_flag == false)
-		vision.EtoV->mode = 1;
-	else if(car.vision_flag.big_energy_engine_flag)
-		vision.EtoV->mode = 3;
-	else if(car.vision_flag.small_energy_engine_flag)
-		vision.EtoV->mode = 2;
+	else
+		vision.EtoV->mode = Board_Rx_Info.state_pkt.vision_mode;
 } 
 
 /**

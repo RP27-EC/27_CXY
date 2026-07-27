@@ -52,7 +52,7 @@
 
 
 /*视觉调试*/
-#define VISION_DEBUG
+ //#define VISION_DEBUG
 //0.0013 38
 /* Exported types ------------------------------------------------------------*/
 

@@ -103,7 +103,6 @@ void Board_Rx_Pkt_03(uint8_t *rxbuf)
     Board_Rx_Info.judge_shoot_pkt.shoot_speed = uint_to_float(t1, -50.0f, 50.0f, 16);
     Board_Rx_Info.judge_shoot_pkt.shoot_freq = uint_to_float(t2, -50.0f, 50.0f, 16);
     Board_Rx_Info.judge_shoot_pkt.shoot_heat_err = ((uint16_t)rxbuf[4] << 8) | rxbuf[5];
-    //Board_Rx_Info.judge_shoot_pkt.shooter_barrel_cooling_value = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
 	Board_Rx_Info.judge_shoot_pkt.allowance_max = ((uint16_t)rxbuf[6] << 8) | rxbuf[7];
 }
 
@@ -135,13 +134,20 @@ void Board_Tx_Update(Board_Tx_Info_t *Board_Tx_Info)
     Board_Tx_Info->state_meg.r_fric_state = (rm_motor[R_Fric].state->status == DEV_ONLINE) ? 1 : 0;
     Board_Tx_Info->state_meg.dial_motor_state = (dail_motor.KT_motor_info .state_info.work_state == M_ONLINE) ? 1 : 0;
     
+	#ifdef VISION_DEBUG
+	Board_Tx_Info->state_meg.lift_state = 2;
+	
+	#else
     if(Gimbal.Lift.lift_state == LIFT_DOWN)
         Board_Tx_Info->state_meg.lift_state = 0;
     else if(Gimbal.Lift.lift_state == LIFT_UP)
         Board_Tx_Info->state_meg.lift_state = 2;
 	else
 		Board_Tx_Info->state_meg.lift_state = 1;
+	#endif
+	
     Board_Tx_Info->state_meg.vision_state = (vision.status->rx_state == DEV_ONLINE) ? 1 : 0;
+	
 }
 
 void Board_Rx_01(uint8_t *rxbuf)
